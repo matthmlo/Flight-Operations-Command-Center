@@ -130,14 +130,32 @@ except Exception as e:
 # ==========================================
 @st.cache_data(ttl=3600)
 def fetch_live_weather(code):
-    if code not in AIRPORT_COORDS: return None
+    if code not in AIRPORT_COORDS: 
+        print(f"⚠️ Debug: {code} not in coordinate list.")
+        return None
+    
     lat, lon = AIRPORT_COORDS[code]
     try:
+        # Added a timeout to prevent hanging
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,precipitation,rain,snowfall,wind_speed_10m&wind_speed_unit=kmh"
-        d = requests.get(url).json()['current']
-        return {'temp': d['temperature_2m'], 'wspd': d['wind_speed_10m'], 'prcp': d['precipitation'], 
-                'is_snowing': 1 if (d['snowfall']>0 or (d['temperature_2m']<0 and d['precipitation']>0)) else 0}
-    except: return None
+        response = requests.get(url, timeout=5)
+        
+        # Check if the API actually responded with 200 OK
+        if response.status_code != 200:
+            print(f"⚠️ Debug: API returned status {response.status_code} for {code}")
+            return None
+            
+        d = response.json()['current']
+        return {
+            'temp': d['temperature_2m'], 
+            'wspd': d['wind_speed_10m'], 
+            'prcp': d['precipitation'], 
+            'is_snowing': 1 if (d['snowfall']>0 or (d['temperature_2m']<0 and d['precipitation']>0)) else 0
+        }
+    except Exception as e:
+        # This will print the EXACT error to your terminal/Streamlit logs
+        print(f"❌ Error fetching weather for {code}: {e}")
+        return None
 
 def infer_driver(pred, w, cong, route_risk=0):
     if pred <= 1: return ""
@@ -678,3 +696,4 @@ elif selected_module == "🧠 Model Insights":
 
 # Force Memory Cleanup at end of script run
 gc.collect()
+
