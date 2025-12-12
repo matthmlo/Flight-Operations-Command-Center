@@ -642,6 +642,29 @@ elif selected_module == "📊 Analytics":
         if 'TAXI_IN' in fdf_filtered.columns: 
             st.plotly_chart(px.box(fdf_filtered, x='Plot_Group', y='TAXI_IN', title="Taxi-In Times (Arr Congestion) - Min"), use_container_width=True)
 
+    # 5. Problem Areas
+    st.subheader("5. Problem Areas (Route Analysis)")
+    r5_c1, r5_c2 = st.columns(2)
+    
+    route_perf = fdf_filtered.groupby(['AIRLINE', 'ORIGIN', 'DEST']).agg(
+        Total_Flights=('FL_DATE', 'count'),
+        Cancel_Count=('Disruption_Severity', lambda x: (x==3).sum()),
+        Avg_Delay=('ARR_DELAY', 'mean')
+    ).reset_index()
+    
+    valid_routes = route_perf[route_perf['Total_Flights'] > 20]
+    
+    with r5_c1:
+        st.markdown("**Top 10 Highest Cancellation Rates**")
+        valid_routes['Cancel_Rate'] = (valid_routes['Cancel_Count'] / valid_routes['Total_Flights']) * 100
+        bad_cancels = valid_routes.sort_values('Cancel_Rate', ascending=False).head(10)
+        st.dataframe(bad_cancels[['AIRLINE','ORIGIN','DEST','Cancel_Rate']].style.format({'Cancel_Rate': "{:.1f}%"}), use_container_width=True, hide_index=True)
+        
+    with r5_c2:
+        st.markdown("**Top 10 Highest Average Delays**")
+        bad_delays = valid_routes.sort_values('Avg_Delay', ascending=False).head(10)
+        st.dataframe(bad_delays[['AIRLINE','ORIGIN','DEST','Avg_Delay']].style.format({'Avg_Delay': "{:.1f} min"}), use_container_width=True, hide_index=True)
+        
 # ==========================================
 # 9. MODULE: MODEL INSIGHTS
 # ==========================================
@@ -696,4 +719,5 @@ elif selected_module == "🧠 Model Insights":
 
 # Force Memory Cleanup at end of script run
 gc.collect()
+
 
